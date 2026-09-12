@@ -47,6 +47,23 @@ spectrum sportsnet
 nesn
 sny
 msg
+bein sports
+bellator mma
+draftkings network
+flohockey
+floracing
+fubo sports network
+sportsgrid
+stadium
+nfl channel
+mlb
+pfl mma
+glory kickboxing
+racer network
+women's sports network
+swerve sports
+pluto tv e-sports
+golazo
 
 # --- entertainment ---
 tnt
