@@ -112,3 +112,69 @@ grit tv
 heroes & icons
 start tv
 true crime network
+
+# --- shopping (national) ---
+qvc
+hsn
+jewelry television
+
+# --- faith (national broadcasters) ---
+tbn
+daystar tv
+the word network
+byutv
+tct
+
+# --- news / weather additions ---
+cheddar news
+weathernation
+story television
+
+# --- Spanish-language national ---
+galavision
+estrella tv
+estrella news
+estrella games
+
+# --- classic TV & movie FAST channels (national) ---
+bonanza
+gunsmoke
+the rifleman
+the twilight zone
+mission impossible
+star trek: the next generation
+the judge judy channel
+judge nosey
+the price is right
+beyond belief: fact or fiction
+alien nation by dust
+50 cent action
+ebony tv by lionsgate
+cinemax classics
+classic cinema
+classic movie westerns
+classic movies channel
+classic tv comedy
+classic tv crime drama
+classic tv drama
+classic tv: families
+cinevault westerns
+pluto tv classic
+pluto tv action
+pluto tv action movies
+pluto tv game shows
+pluto tv reaction
+pluto tv retro action movies
+pluto tv retro crime action
+pluto tv westerns
+pluto tv mtv classic
+pluto tv competition
+game show central
+game show network
+vevo
+animation+
+powernation
+ion tv
+ion plu
+wgn
+reelz

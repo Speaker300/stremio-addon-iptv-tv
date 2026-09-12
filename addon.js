@@ -40,15 +40,17 @@ function isPopular(ch) {
 // drop regional/local, state, and foreign-duplicate feeds of national channels;
 // merge exact-name duplicate bases and numbering twins (e.g. 'ABC News Live 1..10')
 const REGIONAL_DROP = [
-  /^(abc|cbs|nbc|fox)\s+\d+\s+/i,          // local broadcast affiliates
-  /^cbs news (?!24\/7\b)/i,                 // local/state CBS News feeds
-  /^pbs (ket|kids )/i,                      // state PBS + regional PBS Kids feeds
+  /^(abc|cbs|nbc|fox)\s+\d+\s+/i,
+  /^cbs news (?!24\/7\b)/i,
+  /^pbs (ket|kids )/i,
   /^arkansas pbs/i,
   /^telemundo corpus/i,
   /^nbc sports bay/i,
   /^wnbc/i,
   /^(coasttv|filamtv|aabc tv|dora tv|kpvm)/i,
   /municipal access/i,
+  /^30a\b/i,
+  /^iran national revolution/i,
 ]
 const LANG_DUP_DROP = [
   /\blatin america\b/i,
