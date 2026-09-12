@@ -1,13 +1,32 @@
 'use strict'
 
 const { addonBuilder } = require('stremio-addon-sdk')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const PLAYLIST_URL = 'https://iptv-org.github.io/iptv/index.m3u'
 const CHANNELS_API = 'https://iptv-org.github.io/api/channels.json'
+const DEAD_FILE = path.join(__dirname, 'dead-urls.json')
 const REFRESH_MS = 6 * 60 * 60 * 1000
 
 const PLACEHOLDER = 'https://placehold.co/600x400?text=TV'
 const MAX_MANIFEST_BYTES = 8000
+
+const deadUrls = new Set()
+
+function loadDeadUrls() {
+  try {
+    const arr = JSON.parse(fs.readFileSync(DEAD_FILE, 'utf8'))
+    if (Array.isArray(arr)) {
+      deadUrls.clear()
+      for (const u of arr) deadUrls.add(u)
+    }
+  } catch {}
+}
+
+function saveDeadUrls() {
+  fs.writeFileSync(DEAD_FILE, JSON.stringify([...deadUrls]))
+}
 
 const SCOPE = (process.env.SCOPE || 'us').toLowerCase().trim()
 const SCOPED_COUNTRY = SCOPE && SCOPE !== 'world' ? SCOPE.toUpperCase() : ''
@@ -189,6 +208,9 @@ async function loadChannels() {
   const channels = []
   for (const base of baseMap.values()) {
     if (!base.cat) base.cat = 'general'
+    base.variants = base.variants.filter(v => !deadUrls.has(v.url))
+    if (!base.variants.length) continue
+    base.bestScore = Math.max(...base.variants.map(v => v.quality.score))
     base.variants.sort((a, b) => b.quality.score - a.quality.score)
     channels.push(base)
   }
@@ -388,10 +410,55 @@ function run(catalogs) {
   return builder
 }
 
+async function sweepHealth() {
+  const urls = [...new Set(channels.flatMap(c => c.variants.map(v => v.url)))]
+  const dead = new Set()
+  const conc = 40
+  let done = 0
+  for (let i = 0; i < urls.length; i += conc) {
+    const batch = urls.slice(i, i + conc)
+    const results = await Promise.all(batch.map(async u => {
+      try {
+        const ctrl = new AbortController()
+        const t = setTimeout(() => ctrl.abort(), 8000)
+        const res = await fetch(u, {
+          method: 'GET',
+          headers: {
+            Range: 'bytes=0-65535',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/149.0 Safari/537.36',
+          },
+          redirect: 'follow',
+          signal: ctrl.signal,
+        })
+        clearTimeout(t)
+        const alive = (res.status >= 200 && res.status < 300) || res.status === 416
+        return alive ? null : u
+      } catch {
+        return u
+      }
+    }))
+    for (const d of results) if (d) dead.add(d)
+    done += batch.length
+    process.stdout.write(`\r[health] ${done}/${urls.length}`)
+  }
+  process.stdout.write('\n')
+  for (const d of dead) deadUrls.add(d)
+  saveDeadUrls()
+  for (const ch of channels) {
+    ch.variants = ch.variants.filter(v => !dead.has(v.url))
+  }
+  const beforeCh = channels.length
+  channels = channels.filter(ch => ch.variants.length > 0)
+  console.log(`[health] dead urls: ${dead.size} (total ${deadUrls.size}), channels ${beforeCh} -> ${channels.length}`)
+}
+
 let manifestCatalogs = []
 
 async function init() {
   channels = await loadChannels()
+  if (process.env.HEALTHCHECK === '1') {
+    await sweepHealth()
+  }
   const { catalogs } = buildCatalogs()
   let finalCatalogs = catalogs
   const fullLen = JSON.stringify(buildManifest(catalogs)).length
@@ -413,4 +480,6 @@ async function init() {
   return builder
 }
 
-module.exports = { init, channelCount: () => channels.length }
+loadDeadUrls()
+
+module.exports = { init, sweepHealth, channelCount: () => channels.length }

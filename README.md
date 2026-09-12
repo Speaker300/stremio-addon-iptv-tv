@@ -27,6 +27,7 @@ npm install
 npm start                       # USA-only version (default), port 59100
 SCOPE=world npm start           # worldwide version (change PORT to run together)
 EXTRA_M3U=https://... npm start # also merge your premium playlist
+HEALTHCHECK=1 npm start         # probe every channel & permanently prune dead streams
 ```
 
 Listens on `http://localhost:59100` (override with `PORT`).
