@@ -12,6 +12,8 @@ Built with the official [stremio-addon-sdk](https://github.com/Stremio/stremio-a
 
 - **~10,000 channels worldwide**, browsable by category (`cat-*`), country
   (`cc-*`), and quality filter (`q-hd` = 720p and up).
+- **Just American?** Run with `SCOPE=us` for a USA-only version (channel count
+  drops to ~1,000; catalog named *USA TV* with its own addon id).
 - **Multiple quality variants per channel.** Every alternative source for a
   channel is returned as its own stream, sorted best-first (4K > 1080p > 720p >
   SD), so the player can pick the highest available bitrate.
@@ -23,7 +25,9 @@ Built with the official [stremio-addon-sdk](https://github.com/Stremio/stremio-a
 
 ```
 npm install
-npm start          # optionally: EXTRA_M3U=https://example.com/playlist.m3u npm start
+npm start                    # worldwide (everything) version, port 59100
+SCOPE=us npm start           # USA-only version (change PORT to run together)
+EXTRA_M3U=https://... npm start   # also merge your premium playlist
 ```
 
 Listens on `http://localhost:59100` (override with `PORT`).

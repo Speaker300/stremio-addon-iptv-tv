@@ -9,6 +9,10 @@ const REFRESH_MS = 6 * 60 * 60 * 1000
 const PLACEHOLDER = 'https://placehold.co/600x400?text=TV'
 const MAX_MANIFEST_BYTES = 8000
 
+const SCOPE = (process.env.SCOPE || 'world').toLowerCase().trim()
+const SCOPED_COUNTRY = SCOPE && SCOPE !== 'world' ? SCOPE.toUpperCase() : ''
+const TITLE = SCOPED_COUNTRY === 'US' ? 'USA TV' : 'IPTV TV'
+
 const GROUP_MAP = {
   general: 'general', news: 'news', sports: 'sports', movies: 'movies',
   cinema: 'movies', series: 'series', drama: 'series', music: 'music',
@@ -190,6 +194,13 @@ async function loadChannels() {
   }
   channels.sort((a, b) => a.name.localeCompare(b.name))
 
+  // optional country scope (e.g. SCOPE=us for a USA-only version)
+  if (SCOPED_COUNTRY) {
+    const before = channels.length
+    channels = channels.filter(ch => ch.country === SCOPED_COUNTRY)
+    console.log(`[iptv-tv] scope ${SCOPED_COUNTRY}: ${before} -> ${channels.length} channels`)
+  }
+
   // optional user-supplied premium playlist merged into the same catalog
   const extraUrl = process.env.EXTRA_M3U
   if (extraUrl) {
@@ -253,7 +264,7 @@ function buildCatalogs() {
   premiumIndices = premium
 
   const catalogs = [
-    { id: 'all', type: 'tv', name: 'IPTV TV — All channels' },
+    { id: 'all', type: 'tv', name: TITLE + ' — All channels' },
   ]
   if (hd.length >= 20) catalogs.push({ id: 'q-hd', type: 'tv', name: 'Quality: HD+ (720p/1080p/4K)' })
   if (premium.length) catalogs.push({ id: 'cp-premium', type: 'tv', name: 'Premium (your playlist)' })
@@ -261,11 +272,13 @@ function buildCatalogs() {
     if (idx.length < 10) continue
     catalogs.push({ id: 'cat-' + cat, type: 'tv', name: 'Category: ' + cap(cat) })
   }
-  const countryList = [...byCountryLocal.entries()]
-    .filter(([, idx]) => idx.length >= 20)
-    .sort(([, a], [, b]) => b.length - a.length)
-  for (const [cc] of countryList) {
-    catalogs.push({ id: 'cc-' + cc, type: 'tv', name: 'Country: ' + cc })
+  if (!SCOPED_COUNTRY) {
+    const countryList = [...byCountryLocal.entries()]
+      .filter(([, idx]) => idx.length >= 20)
+      .sort(([, a], [, b]) => b.length - a.length)
+    for (const [cc] of countryList) {
+      catalogs.push({ id: 'cc-' + cc, type: 'tv', name: 'Country: ' + cc })
+    }
   }
   return { catalogs }
 }
@@ -275,11 +288,14 @@ function cap(s) {
 }
 
 function buildManifest(catalogs) {
+  const isUs = SCOPED_COUNTRY === 'US'
   return {
-    id: 'community.iptvtv',
-    version: '1.3.0',
-    name: 'IPTV TV',
-    description: 'Worldwide live TV (news, sports, movies, kids, music) with multiple quality variants. Powered by iptv-org.',
+    id: isUs ? 'community.usatv' : 'community.iptvtv',
+    version: '1.4.0',
+    name: TITLE,
+    description: isUs
+      ? 'American live TV — news, sports, entertainment, kids, music. Powered by iptv-org.'
+      : 'Worldwide live TV — news, sports, movies, kids, music, with multi-quality streams. Powered by iptv-org.',
     catalogs,
     resources: ['catalog', 'meta', 'stream'],
     types: ['tv'],
