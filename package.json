@@ -1,0 +1,12 @@
+{
+  "name": "stremio-addon-usa-tv",
+  "version": "1.0.0",
+  "description": "US TV live channels addon for Stremio / Nuvio, powered by iptv-org",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "stremio-addon-sdk": "1.1.x"
+  }
+}
