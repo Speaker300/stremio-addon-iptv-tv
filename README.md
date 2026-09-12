@@ -1,33 +1,32 @@
-# IPTV TV — Stremio addon
+# USA TV — Stremio addon
 
-Worldwide live TV (news, sports, entertainment, kids, music, movies, and more)
+American live TV (news, sports, entertainment, kids, music, movies, and more)
 as a local Stremio addon. Backed by the free
-[iptv-org/iptv](https://github.com/iptv-org/iptv) index (~11,000 streams),
-with official channel logos/categories from the
-[iptv-org API](https://iptv-org.github.io/api/).
+[iptv-org/iptv](https://github.com/iptv-org/iptv) index, with official channel
+logos/categories from the [iptv-org API](https://iptv-org.github.io/api/).
 
 Built with the official [stremio-addon-sdk](https://github.com/Stremio/stremio-addon-sdk).
 
 ## Features
 
-- **~10,000 channels worldwide**, browsable by category (`cat-*`), country
-  (`cc-*`), and quality filter (`q-hd` = 720p and up).
-- **Just American?** Run with `SCOPE=us` for a USA-only version (channel count
-  drops to ~1,000; catalog named *USA TV* with its own addon id).
+- **~1,600 USA channels**, browsable by category (`cat-*`) and quality filter
+  (`q-hd` = 720p and up).
 - **Multiple quality variants per channel.** Every alternative source for a
   channel is returned as its own stream, sorted best-first (4K > 1080p > 720p >
   SD), so the player can pick the highest available bitrate.
 - **Optional premium playlist.** Point `EXTRA_M3U` at any M3U URL to merge your
   own high-bitrate/paid subscription channels into the addon (shown under the
   *Premium* catalog).
+- **Want every country?** Run with `SCOPE=world` to switch to all ~10,000
+  worldwide channels (*IPTV TV* addon id, adds country catalogs).
 
 ## Run
 
 ```
 npm install
-npm start                    # worldwide (everything) version, port 59100
-SCOPE=us npm start           # USA-only version (change PORT to run together)
-EXTRA_M3U=https://... npm start   # also merge your premium playlist
+npm start                       # USA-only version (default), port 59100
+SCOPE=world npm start           # worldwide version (change PORT to run together)
+EXTRA_M3U=https://... npm start # also merge your premium playlist
 ```
 
 Listens on `http://localhost:59100` (override with `PORT`).

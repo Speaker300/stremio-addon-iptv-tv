@@ -9,7 +9,7 @@ const REFRESH_MS = 6 * 60 * 60 * 1000
 const PLACEHOLDER = 'https://placehold.co/600x400?text=TV'
 const MAX_MANIFEST_BYTES = 8000
 
-const SCOPE = (process.env.SCOPE || 'world').toLowerCase().trim()
+const SCOPE = (process.env.SCOPE || 'us').toLowerCase().trim()
 const SCOPED_COUNTRY = SCOPE && SCOPE !== 'world' ? SCOPE.toUpperCase() : ''
 const TITLE = SCOPED_COUNTRY === 'US' ? 'USA TV' : 'IPTV TV'
 
@@ -293,7 +293,7 @@ function buildManifest(catalogs) {
   const isUs = SCOPED_COUNTRY === 'US'
   return {
     id: isUs ? 'community.usatv' : 'community.iptvtv',
-    version: '1.4.0',
+    version: '1.5.0',
     name: TITLE,
     description: isUs
       ? 'American live TV — news, sports, entertainment, kids, music. Powered by iptv-org.'
