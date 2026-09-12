@@ -197,7 +197,9 @@ async function loadChannels() {
   // optional country scope (e.g. SCOPE=us for a USA-only version)
   if (SCOPED_COUNTRY) {
     const before = channels.length
-    channels = channels.filter(ch => ch.country === SCOPED_COUNTRY)
+    const filtered = channels.filter(ch => ch.country === SCOPED_COUNTRY)
+    channels.length = 0
+    channels.push(...filtered)
     console.log(`[iptv-tv] scope ${SCOPED_COUNTRY}: ${before} -> ${channels.length} channels`)
   }
 

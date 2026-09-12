@@ -1,0 +1,4 @@
+[iptv-tv] failed to start: TypeError: Assignment to constant variable.
+    at loadChannels (C:\Users\Ethan\Dev\stremio-addon-usa-tv\addon.js:200:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async init (C:\Users\Ethan\Dev\stremio-addon-usa-tv\addon.js:392:14)
