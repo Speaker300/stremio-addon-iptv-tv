@@ -11,6 +11,116 @@ const REFRESH_MS = 6 * 60 * 60 * 1000
 
 const PLACEHOLDER = 'https://placehold.co/600x400?text=TV'
 const MAX_MANIFEST_BYTES = 8000
+const POPULAR_FILE = path.join(__dirname, 'popular.txt')
+const POPULAR = process.env.POPULAR !== '0'
+
+const popularPatterns = loadPopularPatterns()
+
+function loadPopularPatterns() {
+  const patterns = []
+  try {
+    const text = fs.readFileSync(POPULAR_FILE, 'utf8')
+    for (let line of text.split(/\r?\n/)) {
+      line = line.trim()
+      if (line && !line.startsWith('#')) patterns.push(line.toLowerCase())
+    }
+  } catch {}
+  return patterns
+}
+
+function isPopular(ch) {
+  if (!popularPatterns.length) return true
+  const hay = (ch.name + ' ' + ch.network + ' ' + (ch.alt || []).join(' ')).toLowerCase()
+  for (const p of popularPatterns) {
+    if (hay.includes(p)) return true
+  }
+  return false
+}
+
+// drop regional/local, state, and foreign-duplicate feeds of national channels;
+// merge exact-name duplicate bases and numbering twins (e.g. 'ABC News Live 1..10')
+const REGIONAL_DROP = [
+  /^(abc|cbs|nbc|fox)\s+\d+\s+/i,          // local broadcast affiliates
+  /^cbs news (?!24\/7\b)/i,                 // local/state CBS News feeds
+  /^pbs (ket|kids )/i,                      // state PBS + regional PBS Kids feeds
+  /^arkansas pbs/i,
+  /^telemundo corpus/i,
+  /^nbc sports bay/i,
+  /^wnbc/i,
+  /^(coasttv|filamtv|aabc tv|dora tv|kpvm)/i,
+  /municipal access/i,
+]
+const LANG_DUP_DROP = [
+  /\blatin america\b/i,
+  / en (?:español|espanol)$/i,
+  /^amc en espa/i,
+  /^csi:.*en espa/i,
+  /^nickelodeon (clásico|classico|clássico)/i,
+  /^mtv (en espa|flow latino|con mi ex|com o ex|jovens e m[ãa]es|latin america)/i,
+  /^avatar:/i,
+  /^bob esp/i,
+  /^bob l/i,
+  /^tortues ninja/i,
+  /^las tortugas/i,
+  /^south\s+park\b(?:[^\w]*\s*cole| en fran[çc]ais)/i,
+  /^sumtv/i,
+  /^xite (nuevo|siempre)/i,
+  /^newsmax spanish$/i,
+  /^golazo network$/i,
+]
+
+function refineNational(list) {
+  const drop = (name) => {
+    for (const re of REGIONAL_DROP) if (re.test(name)) return true
+    for (const re of LANG_DUP_DROP) if (re.test(name)) return true
+    return false
+  }
+  const isTwin = (name) => {
+    const m = name.match(/^(.*?)\s+\d{1,2}$/i)
+    return m ? m[1] : ''
+  }
+  const isTwinName = (name) => /\s+\d{1,2}$/i.test(name)
+  const kept = list.filter(ch => !drop(ch.name))
+
+  const merged = []
+  const byName = new Map()
+  for (const ch of kept) {
+    if (isTwinName(ch.name)) continue // numbered twin -> folded in pass 2
+    const key = ch.name.toLowerCase()
+    const existing = byName.get(key)
+    if (existing) {
+      existing.variants.push(...ch.variants)
+      existing.bestScore = Math.max(existing.bestScore, ch.bestScore)
+    } else {
+      const clone = Object.assign({}, ch, { variants: ch.variants.slice() })
+      byName.set(key, clone)
+      merged.push(clone)
+    }
+  }
+  // pass 2: fold 'X 1'..'X N' variants into base channel 'X'; keep unresolved twins
+  let folded = 0
+  for (const ch of kept) {
+    const base = isTwin(ch.name)
+    if (!base) continue
+    const b = byName.get(base.toLowerCase())
+    if (b) {
+      b.variants.push(...ch.variants)
+      folded++
+      continue
+    }
+    // no unnumbered base exists (e.g. 'Fox Sports 1') -> keep as its own channel
+    const key = ch.name.toLowerCase()
+    const clone = Object.assign({}, ch, { variants: ch.variants.slice() })
+    byName.set(key, clone)
+    merged.push(clone)
+  }
+  if (folded) console.log('[iptv-tv] refine folded twins:', folded)
+  for (const ch of merged) {
+    ch.variants.sort((a, b) => b.quality.score - a.quality.score)
+    ch.bestScore = Math.max(...ch.variants.map(v => v.quality.score))
+  }
+  return merged
+}
 
 const deadUrls = new Set()
 
@@ -181,6 +291,8 @@ async function loadChannels() {
         country: (info && info.country) ? info.country.toUpperCase() : countryFromId(s.tvgId),
         logo: s.logo || (info && info.logo) || '',
         cat: '',
+        network: (info && info.network) || '',
+        alt: (info && info.alt_names) || [],
         variants: [],
         bestScore: -1,
       }
@@ -223,6 +335,25 @@ async function loadChannels() {
     channels.length = 0
     channels.push(...filtered)
     console.log(`[iptv-tv] scope ${SCOPED_COUNTRY}: ${before} -> ${channels.length} channels`)
+  }
+
+  // keep only well-known national channels absent POPULAR=0
+  if (POPULAR && popularPatterns.length) {
+    const before = channels.length
+    const kept = channels.filter(isPopular)
+    const removed = channels.filter(ch => !isPopular(ch))
+    if (removed.length) {
+      console.log('[iptv-tv] popular only: ' + before + ' -> ' + kept.length +
+        ' channels (dropped e.g. ' + removed.slice(0, 8).map(ch => ch.name).join(' | ') + ')')
+    }
+    channels.length = 0
+    channels.push(...kept)
+    const refined = refineNational(channels)
+    if (refined.length !== channels.length) {
+      console.log('[iptv-tv] national refine: ' + channels.length + ' -> ' + refined.length + ' channels')
+    }
+    channels.length = 0
+    channels.push(...refined)
   }
 
   // optional user-supplied premium playlist merged into the same catalog
@@ -367,7 +498,7 @@ function run(catalogs) {
   const builder = new addonBuilder(buildManifest(catalogs))
 
   builder.defineCatalogHandler(args => {
-    const skip = args.extra && args.extra.skip ? args.extra.skip : 0
+    const skip = Number(args.extra && args.extra.skip) || 0
     let indices = []
     if (args.id === 'all') indices = channels.map((_, i) => i)
     else if (args.id === 'q-hd') indices = hdIndices
@@ -396,15 +527,16 @@ function run(catalogs) {
     const m = args.id.match(/^gp\.ch\.(\d+)$/)
     if (!m || !channels[Number(m[1])]) return Promise.resolve({ streams: [] })
     const ch = channels[Number(m[1])]
-    const streams = ch.variants.map(v => {
-      const label = v.quality.label
-      return {
-        url: v.url,
-        title: (label ? label + ' · ' : '') + ch.name,
+    const best = ch.variants[0]
+    if (!best) return Promise.resolve({ streams: [] })
+    const label = best.quality.label
+    return Promise.resolve({
+      streams: [{
+        url: best.url,
+        title: ch.name,
         name: label || 'Live TV',
-      }
+      }],
     })
-    return Promise.resolve({ streams })
   })
 
   return builder

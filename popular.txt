@@ -1,0 +1,114 @@
+# Known national US channels/networks. One pattern per line, case-insensitive.
+# A channel is kept if its name, network, or alt-names contains any pattern.
+# Delete the file or run with POPULAR=0 to show every channel again.
+
+# --- broadcast networks & national feeds ---
+abc
+nbc
+cbs
+fox
+pbs
+the cw
+cw
+telemundo
+univision
+
+# --- news ---
+cnn
+msnbc
+fox news
+cnbc
+bloomberg
+newsmax
+newsnation
+abc news live
+cbs news
+nbc news now
+c-span
+tru news
+
+# --- sports ---
+espn
+fox sports
+nbc sports
+big ten network
+sec network
+acc network
+nfl network
+nba tv
+mlb network
+nhl network
+golf channel
+tennis channel
+cbs sports
+bally sports
+yes network
+spectrum sportsnet
+nesn
+sny
+msg
+
+# --- entertainment ---
+tnt
+tbs
+usa network
+amc
+syfy
+tlc
+discovery
+history channel
+a&e
+lifetime
+hallmark
+mtv
+vh1
+comedy central
+bravo
+hgtv
+food network
+travel channel
+animal planet
+national geographic
+nat geo
+paramount network
+paramount+
+bet
+oprah winfrey
+we tv
+freeform
+disney
+cartoon network
+adult swim
+nickelodeon
+nick
+tru tv
+tv land
+investigation discovery
+science channel
+cooking channel
+motor trend
+american heroes
+crime + investigation
+tcm
+starz
+hbo
+showtime
+willow
+filmrise
+xite
+
+# --- movies / newsmag strands & national diginets ---
+accuweather
+weather channel
+court tv
+oxygen
+ewtn
+me tv
+metv
+bounce tv
+laff
+get tv
+grit tv
+heroes & icons
+start tv
+true crime network
