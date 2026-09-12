@@ -1,4 +1,5 @@
 node_modules/
 addon.log
 addon.err.log
+addon-*.log
 
