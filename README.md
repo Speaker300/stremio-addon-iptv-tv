@@ -1,11 +1,24 @@
 # USA TV — Stremio addon
 
 A hand-curated collection of **~240 national American live-TV channels**
-(news, sports, movies, kids, music, shopping, faith) as a local Stremio/Nuvio
+(news, sports, movies, music, shopping, faith) as a local Stremio/Nuvio
 addon. Backed by the free [iptv-org/iptv](https://github.com/iptv-org/iptv)
 index with logos/categories from the [iptv-org API](https://iptv-org.github.io/api/).
 
 Built with the official [stremio-addon-sdk](https://github.com/Stremio/stremio-addon-sdk).
+
+## Supported platforms
+
+Pure JavaScript, no native dependencies — runs anywhere Node.js 18+ runs:
+
+| Platform | How to run |
+|----------|-----------|
+| **Windows** | Install Node LTS → `npm install` → `npm start` |
+| **macOS** | Same — works out of the box |
+| **Linux** | Same — works out of the box |
+| **Chromebook** | Enable Linux (Crostini), then the same steps in the Linux terminal |
+
+Install `http://localhost:59100/manifest.json` in Stremio/Nuvio on any of them.
 
 ## Features
 
@@ -37,6 +50,10 @@ Listens on `http://localhost:59100` (override with `PORT`).
 alt-name contains any listed pattern (one per line, case-insensitive). Add a
 line and restart to include a channel. Run with `POPULAR=0` to show every
 channel again and discover what's available.
+
+Kids/preschool channels (Nickelodeon, Nick Jr., NickToons, Disney Junior,
+Disney XD, PBS Kids, SpongeBob, Peppa Pig, ...) are automatically excluded in
+`addon.js`; the main Disney Channel and Adult Swim remain.
 
 ## Premium playlist (`EXTRA_M3U`)
 

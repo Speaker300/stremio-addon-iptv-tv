@@ -70,9 +70,26 @@ const LANG_DUP_DROP = [
   /^newsmax spanish$/i,
   /^golazo network$/i,
 ]
+const KIDS_DROP = [
+  /^nick/i, // Nickelodeon*, Nick Jr.*, NickToons
+  /^nickelodeon/i,
+  /^spongebob/i,
+  /^super!/i, // Super! SpongeBob / Super! iCarly
+  /^peppa pig/i,
+  /^rugrats/i,
+  /^hey arnold/i,
+  /^icarly/i,
+  /^kenan & kel/i,
+  /^totally turtles/i,
+  /^pbs kids/i,
+  /^teen\s*nick/i,
+  /^disney junior/i,
+  /^disney xd/i,
+]
 
 function refineNational(list) {
   const drop = (name) => {
+    for (const re of KIDS_DROP) if (re.test(name)) return true
     for (const re of REGIONAL_DROP) if (re.test(name)) return true
     for (const re of LANG_DUP_DROP) if (re.test(name)) return true
     return false
@@ -448,7 +465,7 @@ function buildManifest(catalogs) {
   const isUs = SCOPED_COUNTRY === 'US'
   return {
     id: isUs ? 'community.usatv' : 'community.iptvtv',
-    version: '1.5.0',
+    version: '1.6.0',
     name: TITLE,
     description: isUs
       ? 'American live TV — news, sports, entertainment, kids, music. Powered by iptv-org.'
