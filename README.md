@@ -1,36 +1,58 @@
 # USA TV — Stremio addon
 
-American live TV (news, sports, entertainment, kids, music, movies, and more)
-as a local Stremio addon. Backed by the free
-[iptv-org/iptv](https://github.com/iptv-org/iptv) index, with official channel
-logos/categories from the [iptv-org API](https://iptv-org.github.io/api/).
+A hand-curated collection of **~240 national American live-TV channels**
+(news, sports, movies, kids, music, shopping, faith) as a local Stremio/Nuvio
+addon. Backed by the free [iptv-org/iptv](https://github.com/iptv-org/iptv)
+index with logos/categories from the [iptv-org API](https://iptv-org.github.io/api/).
 
 Built with the official [stremio-addon-sdk](https://github.com/Stremio/stremio-addon-sdk).
 
 ## Features
 
-- **~1,600 USA channels**, browsable by category (`cat-*`) and quality filter
-  (`q-hd` = 720p and up).
-- **Multiple quality variants per channel.** Every alternative source for a
-  channel is returned as its own stream, sorted best-first (4K > 1080p > 720p >
-  SD), so the player can pick the highest available bitrate.
-- **Optional premium playlist.** Point `EXTRA_M3U` at any M3U URL to merge your
-  own high-bitrate/paid subscription channels into the addon (shown under the
-  *Premium* catalog).
-- **Want every country?** Run with `SCOPE=world` to switch to all ~10,000
+- **Curated national list** — only channels people actually watch (no local
+  affiliates, no random/offshore feeds, no foreign-language dupes).
+- **Health-tested streams** — dead URLs are detected and pruned automatically;
+  the best live source is served for each channel.
+- **Premium playlist merge.** Point `EXTRA_M3U` at any M3U URL (e.g. a paid IPTV
+  subscription) to add live NFL/NBA/NHL/MLB games, PPV, and premium channels
+  under a *Premium* tab.
+- **Every country?** Run with `SCOPE=world` to switch to the full ~10,000
   worldwide channels (*IPTV TV* addon id, adds country catalogs).
 
 ## Run
 
 ```
 npm install
-npm start                       # USA-only version (default), port 59100
-SCOPE=world npm start           # worldwide version (change PORT to run together)
+npm start                       # curated USA version (default), port 59100
 EXTRA_M3U=https://... npm start # also merge your premium playlist
+SCOPE=world npm start           # worldwide version
 HEALTHCHECK=1 npm start         # probe every channel & permanently prune dead streams
 ```
 
 Listens on `http://localhost:59100` (override with `PORT`).
+
+## Curating channels (`popular.txt`)
+
+`popular.txt` is a whitelist: a channel is kept if its name, network, or
+alt-name contains any listed pattern (one per line, case-insensitive). Add a
+line and restart to include a channel. Run with `POPULAR=0` to show every
+channel again and discover what's available.
+
+## Premium playlist (`EXTRA_M3U`)
+
+For channels free TV doesn't have — especially **live NFL/NBA/NHL/MLB games,
+NFL RedZone, regional sports networks, and PPV** — merge in a paid IPTV
+subscription playlist:
+
+- **Plain M3U:** use the URL your provider gives you directly.
+- **Xtream codes:** turn `server`, `username`, `password` into an M3U URL:
+
+  ```
+  http://SERVER:PORT/get.php?username=USER&password=PASS&type=m3u_plus&output=m3u8
+  ```
+
+Then start with `EXTRA_M3U=https://that-url npm start`. Matching channels are
+de-duplicated against the free list and appear under the *Premium* catalog.
 
 ## Install
 
@@ -44,13 +66,13 @@ http://localhost:59100/manifest.json
 
 - `GET /manifest.json` — addon manifest (catalogs)
 - `GET /catalog/tv/:catalog/all.json` — channel list per catalog
-  (`all`, `q-hd`, `cp-premium`, `cat-<category>`, `cc-<country>`)
-- `GET /meta/tv/:id.json` — single channel info (includes source/quality count)
-- `GET /stream/tv/:id.json` — all stream variants for a channel, best-first
+  (`all`, `q-hd`, `cp-premium`, `cat-<category>`)
+- `GET /meta/tv/:id.json` — single channel info
+- `GET /stream/tv/:id.json` — best stream for a channel
 
 ## Notes on quality
 
-Real bitrate is capped by what the source broadcasts. In iptv-org's free index
-roughly: ~10 channels at 4K, ~200 at 1080p, ~800 at 720p; the rest are SD. For
-genuinely higher bitrates, use a premium IPTV subscription and feed its M3U
-through `EXTRA_M3U`. The channel list + metadata refresh every 6 hours.
+Real bitrate is capped by what the source broadcasts; most free streams are SD
+and only a minority reach 720p/1080p. For genuinely high-bitrate 1080p60/4K
+feeds (including sports), use the `EXTRA_M3U` premium route. List data refreshes
+every 6 hours.
