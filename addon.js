@@ -7,9 +7,9 @@ const path = require('node:path')
 const PLAYLIST_URL = 'https://iptv-org.github.io/iptv/index.m3u'
 const CHANNELS_API = 'https://iptv-org.github.io/api/channels.json'
 const DEAD_FILE = path.join(__dirname, 'dead-urls.json')
-const REFRESH_MS = 6 * 60 * 60 * 1000
+const REFRESH_MS = 30 * 60 * 1000 // reload playlist + metadata every 30 min
+const HEALTH_MS = 4 * 60 * 60 * 1000 // re-probe stream health every 4 h
 
-const PLACEHOLDER = 'https://placehold.co/600x400?text=TV'
 const MAX_MANIFEST_BYTES = 8000
 const POPULAR_FILE = path.join(__dirname, 'popular.txt')
 const POPULAR = process.env.POPULAR !== '0'
@@ -251,6 +251,35 @@ const KEYWORD_RULES = [
   [/shop/i, 'shopping'], [/auto/i, 'auto'], [/health/i, 'health'],
 ]
 
+// ordering: most-watched national channels first, then alphabetical
+const RANK_GROUPS = [
+  ['abc', 'cbs', 'nbc', 'fox', 'pbs', 'the cw', 'cw'],
+  ['espn', 'fox sports', 'nbc sports', 'cbs sports', 'nfl network', 'nfl channel', 'nba tv', 'nhl network', 'mlb', 'big ten network', 'sec network', 'tennis channel', 'yes network'],
+  ['fox news', 'cnbc', 'newsmax', 'newsnation', 'cheddar', 'weather', 'weathernation', 'court tv', 'live now', 'story television', 'dateline'],
+  ['amc', 'usa network', 'syfy', 'paramount', 'comedy central', 'national geographic', 'nat geo', 'disney', 'freeform', 'lifetime', 'a&e', 'oxygen', 'showtime', 'starz', 'tnt', 'tbs'],
+]
+function channelText(ch) {
+  return (ch.name + ' ' + ch.network + ' ' + (ch.alt || []).join(' ')).toLowerCase()
+}
+function rankOf(ch) {
+  const s = channelText(ch)
+  for (let i = 0; i < RANK_GROUPS.length; i++) {
+    if (RANK_GROUPS[i].some(p => s.includes(p))) return i
+  }
+  return RANK_GROUPS.length
+}
+function sortByPriority(list) {
+  list.sort((a, b) => (rankOf(a) - rankOf(b)) || a.name.localeCompare(b.name))
+}
+const SPORTS_TAB = /espn|sports|golazo|nfl|nba|nhl|mlb\b|tennis|racing|racer|motor ?trend|powernation|outdoor|poker|billiard/i
+const NEWS_TAB = /\bnews\b|cnbc|bloomberg|weather|weathernation|cheddar|live now|story television|court tv|dateline/i
+function tabOf(ch) {
+  const s = channelText(ch)
+  if (SPORTS_TAB.test(s)) return 'tab-sports'
+  if (NEWS_TAB.test(s)) return 'tab-news'
+  return 'tab-everything'
+}
+
 // tvg-id quality suffixes and name markers -> quality score + label
 function parseQuality(name, tvgId) {
   const tagged = tvgId.match(/@(SD|HD|FHD|UHD|4K|HEVC|)\b/i)
@@ -472,65 +501,41 @@ async function loadChannels() {
 }
 
 let channels = []
-let byCatalog = new Map()
-let byCountry = new Map()
-let hdIndices = []
+let byTab = new Map()
 let premiumIndices = []
 
 function buildCatalogs() {
-  const byCat = new Map()
-  const byCountryLocal = new Map()
-  const hd = []
+  const tabs = new Map()
   const premium = []
   for (let i = 0; i < channels.length; i++) {
     const ch = channels[i]
-    if (!byCat.has(ch.cat)) byCat.set(ch.cat, [])
-    byCat.get(ch.cat).push(i)
+    const t = tabOf(ch)
+    if (!tabs.has(t)) tabs.set(t, [])
+    tabs.get(t).push(i)
     if (ch.premium) premium.push(i)
-    if (ch.bestScore >= 720) hd.push(i)
-    if (ch.country) {
-      if (!byCountryLocal.has(ch.country)) byCountryLocal.set(ch.country, [])
-      byCountryLocal.get(ch.country).push(i)
-    }
   }
-  byCatalog = byCat
-  byCountry = byCountryLocal
-  hdIndices = hd
+  byTab = tabs
   premiumIndices = premium
 
   const catalogs = [
     { id: 'all', type: 'tv', name: TITLE + ' — All channels' },
   ]
-  if (hd.length >= 20) catalogs.push({ id: 'q-hd', type: 'tv', name: 'Quality: HD+ (720p/1080p/4K)' })
   if (premium.length) catalogs.push({ id: 'cp-premium', type: 'tv', name: 'Premium (your playlist)' })
-  for (const [cat, idx] of [...byCat.entries()].sort(([, a], [, b]) => b.length - a.length)) {
-    if (idx.length < 10) continue
-    catalogs.push({ id: 'cat-' + cat, type: 'tv', name: 'Category: ' + cap(cat) })
-  }
-  if (!SCOPED_COUNTRY) {
-    const countryList = [...byCountryLocal.entries()]
-      .filter(([, idx]) => idx.length >= 20)
-      .sort(([, a], [, b]) => b.length - a.length)
-    for (const [cc] of countryList) {
-      catalogs.push({ id: 'cc-' + cc, type: 'tv', name: 'Country: ' + cc })
-    }
-  }
+  if ((tabs.get('tab-sports') || []).length) catalogs.push({ id: 'tab-sports', type: 'tv', name: 'Sports' })
+  if ((tabs.get('tab-news') || []).length) catalogs.push({ id: 'tab-news', type: 'tv', name: 'News' })
+  if ((tabs.get('tab-everything') || []).length) catalogs.push({ id: 'tab-everything', type: 'tv', name: 'Everything Else' })
   return { catalogs }
-}
-
-function cap(s) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function buildManifest(catalogs) {
   const isUs = SCOPED_COUNTRY === 'US'
   return {
     id: isUs ? 'community.usatv' : 'community.iptvtv',
-    version: '1.6.0',
+    version: '1.7.0',
     name: TITLE,
     description: isUs
-      ? 'American live TV — news, sports, entertainment, kids, music. Powered by iptv-org.'
-      : 'Worldwide live TV — news, sports, movies, kids, music, with multi-quality streams. Powered by iptv-org.',
+      ? 'American live TV — news, sports, entertainment. Powered by iptv-org.'
+      : 'Worldwide live TV with multi-quality streams. Powered by iptv-org.',
     catalogs,
     resources: ['catalog', 'meta', 'stream'],
     types: ['tv'],
@@ -554,15 +559,17 @@ function trimCatalogsForManifest(allCatalogs) {
 
 function bestLogo(ch) {
   const pick = ch.variants.find(v => v.logo) || ch.variants[0]
-  return (pick && pick.logo) || ch.logo || PLACEHOLDER
+  const logo = (pick && pick.logo) || ch.logo
+  return logo || 'https://placehold.co/600x400?text=' + encodeURIComponent(ch.name)
 }
 
 function toMeta(i) {
   const ch = channels[i]
+  const flag = ch.bestScore >= 2160 ? ' 4K' : ch.bestScore >= 1080 ? ' 1080p' : ch.bestScore >= 720 ? ' 720p' : ''
   return {
     id: 'gp.ch.' + i,
     type: 'tv',
-    name: ch.name,
+    name: ch.name + flag,
     poster: bestLogo(ch),
     posterShape: 'landscape',
     background: bestLogo(ch),
@@ -581,10 +588,8 @@ function run(catalogs) {
     const skip = Number(args.extra && args.extra.skip) || 0
     let indices = []
     if (args.id === 'all') indices = channels.map((_, i) => i)
-    else if (args.id === 'q-hd') indices = hdIndices
     else if (args.id === 'cp-premium') indices = premiumIndices
-    else if (args.id.startsWith('cat-')) indices = byCatalog.get(args.id.slice(4)) || []
-    else if (args.id.startsWith('cc-')) indices = byCountry.get(args.id.slice(3)) || []
+    else if (args.id.startsWith('tab-')) indices = byTab.get(args.id) || []
     const metas = indices.slice(skip, skip + 100).map(toMeta)
     return Promise.resolve({ metas })
   })
@@ -661,6 +666,7 @@ async function sweepHealth() {
   }
   const beforeCh = channels.length
   channels = channels.filter(ch => ch.variants.length > 0)
+  sortByPriority(channels)
   console.log(`[health] dead urls: ${dead.size} (total ${deadUrls.size}), channels ${beforeCh} -> ${channels.length}`)
 }
 
@@ -668,8 +674,10 @@ let manifestCatalogs = []
 
 async function init() {
   channels = await loadChannels()
+  sortByPriority(channels)
   if (process.env.HEALTHCHECK === '1') {
     await sweepHealth()
+    sortByPriority(channels)
   }
   const { catalogs } = buildCatalogs()
   let finalCatalogs = catalogs
@@ -683,12 +691,22 @@ async function init() {
   setInterval(async () => {
     try {
       channels = await loadChannels()
+      sortByPriority(channels)
       buildCatalogs()
       console.log('[iptv-tv] playlist refreshed:', channels.length, 'channels')
     } catch (err) {
       console.error('[iptv-tv] refresh failed:', err.message)
     }
   }, REFRESH_MS)
+  setInterval(async () => {
+    try {
+      await sweepHealth()
+      sortByPriority(channels)
+      buildCatalogs()
+    } catch (err) {
+      console.error('[iptv-tv] health sweep failed:', err.message)
+    }
+  }, HEALTH_MS)
   return builder
 }
 

@@ -1,7 +1,7 @@
 # USA TV — Stremio addon
 
-A hand-curated collection of **~240 national American live-TV channels**
-(news, sports, movies, music, shopping, faith) as a local Stremio/Nuvio
+A hand-curated collection of **~100 national American live-TV channels**
+(news, sports, entertainment, movies, shopping, faith) as a local Stremio/Nuvio
 addon. Backed by the free [iptv-org/iptv](https://github.com/iptv-org/iptv)
 index with logos/categories from the [iptv-org API](https://iptv-org.github.io/api/).
 
@@ -23,9 +23,17 @@ Install `http://localhost:59100/manifest.json` in Stremio/Nuvio on any of them.
 ## Features
 
 - **Curated national list** — only channels people actually watch (no local
-  affiliates, no random/offshore feeds, no foreign-language dupes).
-- **Health-tested streams** — dead URLs are detected and pruned automatically;
-  the best live source is served for each channel.
+  affiliates, no random/offshore feeds, no foreign-language, no kids shows).
+- **One simple list, smarter tabs.** A single *All channels* list ordered
+  best-known-first (ABC, CBS, NBC, Fox, …) plus lightweight *Sports*, *News*
+  and *Everything Else* tabs.
+- **Quality at a glance.** `720p` / `1080p` / `4K` tags are appended right on
+  the tile names; the best live source is served for each channel.
+- **Real logos everywhere.** Every tile shows the channel's real logo (or a
+  labeled banner as fallback) — never a generic placeholder.
+- **Always live.** Channel list and stream health refresh automatically
+  (playlist+metadata every 30 min, dead-stream sweep every 4 h), so you never
+  have to restart to get new/updated channels.
 - **Premium playlist merge.** Point `EXTRA_M3U` at any M3U URL (e.g. a paid IPTV
   subscription) to add live NFL/NBA/NHL/MLB games, PPV, and premium channels
   under a *Premium* tab.
@@ -83,7 +91,7 @@ http://localhost:59100/manifest.json
 
 - `GET /manifest.json` — addon manifest (catalogs)
 - `GET /catalog/tv/:catalog/all.json` — channel list per catalog
-  (`all`, `q-hd`, `cp-premium`, `cat-<category>`)
+  (`all`, `tab-sports`, `tab-news`, `tab-everything`, `cp-premium`)
 - `GET /meta/tv/:id.json` — single channel info
 - `GET /stream/tv/:id.json` — best stream for a channel
 
@@ -92,4 +100,4 @@ http://localhost:59100/manifest.json
 Real bitrate is capped by what the source broadcasts; most free streams are SD
 and only a minority reach 720p/1080p. For genuinely high-bitrate 1080p60/4K
 feeds (including sports), use the `EXTRA_M3U` premium route. List data refreshes
-every 6 hours.
+every 30 minutes with dead-stream sweeps every 4 hours.
