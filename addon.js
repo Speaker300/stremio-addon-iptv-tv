@@ -51,6 +51,7 @@ const REGIONAL_DROP = [
   /municipal access/i,
   /^30a\b/i,
   /^iran national revolution/i,
+  /^tbn\s+(?:armenia|pacific|україна|ukraina)/i,
 ]
 const LANG_DUP_DROP = [
   /\blatin america\b/i,
@@ -86,12 +87,72 @@ const KIDS_DROP = [
   /^disney junior/i,
   /^disney xd/i,
 ]
+// everything Spanish-language (user: 'anything in Spanish')
+const SPANISH_DROP = [
+  /telemundo/,
+  /univision/,
+  /galavision/,
+  /estrella/,
+  /azteca/,
+  /deporte/, // ESPN Deportes, Fox Deportes, Pluto TV Deportes
+  / en espa(?:ñ|n)ol/,
+  /espa(?:ñ|n)ol/,
+  /universo/, // NBC Universo
+  /novelas/, // TNT Novelas
+  /telenovela/,
+  /noticias/,
+  /f[úu]tbol/,
+  /\bmundo\b/,
+  /latino/, // Vevo Latino
+  /mexic(?:o|a)/,
+  /nuestra/,
+  /internacional/,
+  / al dia/,
+  /golazo/,
+]
+// channels the user explicitly wants removed (voice list)
+const USER_DROP = [
+  /^48 hours/,
+  /50 cent action/,
+  /\bacc network\b/,
+  /accuweather/,
+  /alien nation/,
+  /^all reality/,
+  /^all weddings/,
+  /amc absolute reality/,
+  /top model/, // America's Next Top Model
+  /antiques/, // Antiques Roadshow PBS / PBS Antiques Road Trip
+  /\banimation\+/, // Animation+
+  /bein sports/,
+  /bellator/,
+  /(^|\s)bet(\s|$)/, // everything from BET
+  /better health/,
+  /better life/,
+  /beyond belief/,
+  /beyond the gates/,
+  /billiard/, // Billiard TV
+  /bloomberg/,
+  /^bravo/,
+  /\bbyu\b/, // BYUtv
+  /^byu/,
+  /pluto/, // everything from Pluto
+  /^csi/,
+  /filmrise/,
+  /mtv/, // everything MTV
+  /hallmark/,
+  /\bhbo\b/,
+]
 
 function refineNational(list) {
-  const drop = (name) => {
-    for (const re of KIDS_DROP) if (re.test(name)) return true
-    for (const re of REGIONAL_DROP) if (re.test(name)) return true
-    for (const re of LANG_DUP_DROP) if (re.test(name)) return true
+  const KEEP_NAMES = ['nfl channel']
+  const drop = (ch) => {
+    if (KEEP_NAMES.includes((ch.name || '').toLowerCase())) return false
+    const s = (ch.name + ' ' + ch.network + ' ' + (ch.alt || []).join(' ')).toLowerCase()
+    for (const re of KIDS_DROP) if (re.test(s)) return true
+    for (const re of REGIONAL_DROP) if (re.test(s)) return true
+    for (const re of LANG_DUP_DROP) if (re.test(s)) return true
+    for (const re of SPANISH_DROP) if (re.test(s)) return true
+    for (const re of USER_DROP) if (re.test(s)) return true
     return false
   }
   const isTwin = (name) => {
@@ -99,7 +160,7 @@ function refineNational(list) {
     return m ? m[1] : ''
   }
   const isTwinName = (name) => /\s+\d{1,2}$/i.test(name)
-  const kept = list.filter(ch => !drop(ch.name))
+  const kept = list.filter(ch => !drop(ch))
 
   const merged = []
   const byName = new Map()
