@@ -204,3 +204,14 @@ ion tv
 ion plu
 wgn
 reelz
+# second-source national FAST channels (Free-TV / Pluto / Samsung / Roku / Plex / LG)
+cnn
+cnn headlines
+msnbc
+paramount movie
+paramount+ picks
+fox business
+golf
+poker
+sportsgrid
+bleacher report

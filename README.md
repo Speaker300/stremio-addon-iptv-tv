@@ -1,9 +1,11 @@
 # USA TV — Stremio addon
 
-A hand-curated collection of **~100 national American live-TV channels**
+A hand-curated collection of **~200 national American live-TV channels**
 (news, sports, entertainment, movies, shopping, faith) as a local Stremio/Nuvio
 addon. Backed by the free [iptv-org/iptv](https://github.com/iptv-org/iptv)
-index with logos/categories from the [iptv-org API](https://iptv-org.github.io/api/).
+index (with logos/categories from the [iptv-org API](https://iptv-org.github.io/api/))
+plus curated free FAST playlists from Free-TV/IPTV, Pluto TV, Samsung TV Plus,
+Roku, Plex, and LG Channels.
 
 Built with the official [stremio-addon-sdk](https://github.com/Stremio/stremio-addon-sdk).
 
@@ -39,6 +41,11 @@ Install `http://localhost:59100/manifest.json` in Stremio/Nuvio on any of them.
   under a *Premium* tab.
 - **Every country?** Run with `SCOPE=world` to switch to the full ~10,000
   worldwide channels (*IPTV TV* addon id, adds country catalogs).
+- **Extra free sources.** By default the addon merges Free-TV/IPTV, Pluto TV,
+  Samsung TV Plus, Roku, Plex, and LG Channels US playlists into the same pool;
+  set `MORE_SOURCES=off` to use only iptv-org, or `MORE_SOURCES=url1,url2` for
+  your own list. Everything still flows through the same curated whitelist
+  (regional/local/foreign/kids channels are auto-filtered).
 
 ## Run
 
@@ -46,6 +53,8 @@ Install `http://localhost:59100/manifest.json` in Stremio/Nuvio on any of them.
 npm install
 npm start                       # curated USA version (default), port 59100
 EXTRA_M3U=https://... npm start # also merge your premium playlist
+MORE_SOURCES=off npm start      # only the main iptv-org index
+MORE_SOURCES=https://a.m3u,https://b.m3u npm start # custom extra sources
 SCOPE=world npm start           # worldwide version
 HEALTHCHECK=1 npm start         # probe every channel & permanently prune dead streams
 ```

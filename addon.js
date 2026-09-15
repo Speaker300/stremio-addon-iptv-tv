@@ -14,6 +14,31 @@ const MAX_MANIFEST_BYTES = 8000
 const POPULAR_FILE = path.join(__dirname, 'popular.txt')
 const POPULAR = process.env.POPULAR !== '0'
 
+// secondary free-FAST playlist sources merged into the same pipeline.
+// MORE_SOURCES=off disables them; MORE_SOURCES=url1,url2 overrides the defaults.
+const MORE_SOURCE_URLS = (() => {
+  const env = (process.env.MORE_SOURCES || '').trim()
+  if (env && env.toLowerCase() === 'off') return []
+  if (env) {
+    return env.split(',').map(u => u.trim()).filter(Boolean).map(url => ({ url, country: '', name: 'custom' }))
+  }
+  return [
+    { url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8', country: '', name: 'Free-TV' },
+    { url: 'https://raw.githubusercontent.com/BuddyChewChew/pluto/main/pluto_us.m3u', country: 'US', name: 'Pluto US' },
+    { url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_us.m3u', country: 'US', name: 'Samsung TV Plus US' },
+    { url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/roku_all.m3u', country: 'US', name: 'Roku' },
+    { url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_us.m3u', country: 'US', name: 'Plex US' },
+    { url: 'https://raw.githubusercontent.com/BuddyChewChew/lg-playlist-generator/main/lg_channels_us.m3u', country: 'US', name: 'LG Channels US' },
+  ]
+})()
+
+const COUNTRY_CODE = {
+  'united states': 'US', 'united states of america': 'US', usa: 'US', america: 'US', 'u.s.a.': 'US',
+  canada: 'CA', 'united kingdom': 'GB', uk: 'GB', 'great britain': 'GB', ireland: 'IE',
+  australia: 'AU', 'new zealand': 'NZ', mexico: 'MX', brazil: 'BR', france: 'FR',
+  germany: 'DE', spain: 'ES', italy: 'IT', india: 'IN', 'south korea': 'KR', japan: 'JP',
+}
+
 const popularPatterns = loadPopularPatterns()
 
 function loadPopularPatterns() {
@@ -52,6 +77,11 @@ const REGIONAL_DROP = [
   /^30a\b/i,
   /^iran national revolution/i,
   /^tbn\s+(?:armenia|pacific|україна|ukraina)/i,
+  /^(abc|nbc|cbs|fox)\d+/i,
+  /^fox local /i,
+  /^[kw][a-z]{3}\b/i,
+  /\blos angeles\b/i,
+  /\baustralia\b/i,
 ]
 const LANG_DUP_DROP = [
   /\blatin america\b/i,
@@ -86,6 +116,7 @@ const KIDS_DROP = [
   /^teen\s*nick/i,
   /^disney junior/i,
   /^disney xd/i,
+  /mister rogers/i,
 ]
 // everything Spanish-language (user: 'anything in Spanish')
 const SPANISH_DROP = [
@@ -109,6 +140,7 @@ const SPANISH_DROP = [
   /internacional/,
   / al dia/,
   /golazo/,
+  /cine selecto/,
 ]
 // channels the user explicitly wants removed (voice list)
 const USER_DROP = [
@@ -141,10 +173,11 @@ const USER_DROP = [
   /mtv/, // everything MTV
   /hallmark/,
   /\bhbo\b/,
+  /bonanza-billies/,
 ]
 
 function refineNational(list) {
-  const KEEP_NAMES = ['nfl channel']
+  const KEEP_NAMES = ['nfl channel', 'paramount movie channel', 'paramount+ picks']
   const drop = (ch) => {
     if (KEEP_NAMES.includes((ch.name || '').toLowerCase())) return false
     const s = (ch.name + ' ' + ch.network + ' ' + (ch.alt || []).join(' ')).toLowerCase()
@@ -195,11 +228,27 @@ function refineNational(list) {
     merged.push(clone)
   }
   if (folded) console.log('[iptv-tv] refine folded twins:', folded)
+  // merge near-identical names (case/punctuation/leading-'the'/quality-suffix variants across sources)
+  const byCanon = new Map()
+  let canonMerged = 0
   for (const ch of merged) {
+    const key = canonicalKey(ch.name)
+    const existing = byCanon.get(key)
+    if (existing) {
+      existing.variants.push(...ch.variants)
+      existing.bestScore = Math.max(existing.bestScore, ch.bestScore)
+      canonMerged++
+    } else {
+      byCanon.set(key, ch)
+    }
+  }
+  const canonicalList = merged.filter(ch => byCanon.get(canonicalKey(ch.name)) === ch)
+  if (canonMerged) console.log('[iptv-tv] refine merged duplicates:', canonMerged)
+  for (const ch of canonicalList) {
     ch.variants.sort((a, b) => b.quality.score - a.quality.score)
     ch.bestScore = Math.max(...ch.variants.map(v => v.quality.score))
   }
-  return merged
+  return canonicalList
 }
 
 const deadUrls = new Set()
@@ -307,9 +356,15 @@ function cleanName(name) {
   let n = name.replace(/\(.*\d+\s*p\)/gi, '')
   n = n.replace(/\((?:fhd|uhd|hd|sd|4k|hevc)\)/gi, '')
   n = n.replace(/\s+(?:fhd|uhd|4k|hd|hevc)\s*$/gi, '')
+  n = n.replace(/\s+\d{3,4}p\s*$/gi, '')
   n = n.replace(/\s*\[[^\]]*\]\s*$/g, '')
   return n.replace(/\s{2,}/g, ' ').trim()
 }
+
+// collision key for merging near-identical names across sources
+const canonicalKey = (name) => (name || '').toLowerCase()
+  .replace(/^the\s+/, '')
+  .replace(/[^a-z0-9]/g, '')
 
 function parseM3U(text) {
   const streams = []
@@ -331,8 +386,10 @@ function parseM3U(text) {
       pending = {
         name,
         tvgId: String(attrs['tvg-id'] || ''),
+        tvgName: attrs['tvg-name'] || '',
         logo: attrs['tvg-logo'] || '',
         group: attrs['group-title'] || '',
+        countryAttr: attrs['tvg-country'] || '',
         url: '',
       }
     } else if (pending && line && !line.startsWith('#')) {
@@ -356,6 +413,67 @@ function groupToCat(group) {
 function countryFromId(tvgId) {
   const m = tvgId && tvgId.match(/\.([a-z]{2})(?:\.|@|$)/i)
   return m ? m[1].toUpperCase() : ''
+}
+
+function channelCountry(s, info, fallbackCountry) {
+  if (info && info.country) return info.country.toUpperCase()
+  const fromId = countryFromId(s.tvgId)
+  if (fromId) return fromId
+  if (s.countryAttr) {
+    const c = s.countryAttr.trim().toLowerCase()
+    if (COUNTRY_CODE[c]) return COUNTRY_CODE[c]
+    if (/^[a-z]{2}$/.test(c)) return c.toUpperCase()
+  }
+  const g = (s.group || '').trim().toLowerCase()
+  if (COUNTRY_CODE[g]) return COUNTRY_CODE[g]
+  return fallbackCountry || ''
+}
+
+function absorbStream(baseMap, seenUrl, s, channelInfo, fallbackCountry) {
+  if (!s.url || !/^https?:/i.test(s.url)) return 0
+  if (seenUrl.has(s.url)) return 0
+  const tvgBase = String(s.tvgId || '').split('@')[0]
+  const info = tvgBase ? channelInfo.get(tvgBase) : null
+  if (info && info.is_nsfw) return 0
+
+  const key = tvgBase || cleanName(s.name).toLowerCase() || 'channel'
+  const apiCats = (info && Array.isArray(info.categories))
+    ? info.categories.filter(c => GROUP_MAP[c])
+    : []
+
+  const qual = parseQuality(s.name, s.tvgId)
+  let base = baseMap.get(key)
+  if (!base) {
+    base = {
+      name: cleanName(s.name) || tvgBase,
+      country: channelCountry(s, info, fallbackCountry),
+      logo: s.logo || (info && info.logo) || '',
+      cat: '',
+      network: (info && info.network) || '',
+      alt: (info && info.alt_names) || [],
+      variants: [],
+      bestScore: -1,
+    }
+    baseMap.set(key, base)
+  }
+
+  if (!base.cat) {
+    base.cat = (apiCats.length && GROUP_MAP[apiCats[0]]) || groupToCat(s.group) || 'general'
+  }
+
+  base.logo = base.logo || s.logo
+  base.variants.push({
+    url: s.url,
+    name: s.name,
+    logo: s.logo || '',
+    quality: qual,
+  })
+  if (qual.score >= base.bestScore) {
+    base.bestScore = qual.score
+    if (s.logo) base.logo = s.logo
+  }
+  seenUrl.add(s.url)
+  return 1
 }
 
 async function loadChannels() {
@@ -382,48 +500,28 @@ async function loadChannels() {
   const seenUrl = new Set()
 
   for (const s of rawStreams) {
-    if (seenUrl.has(s.url)) continue
-    const tvgBase = s.tvgId.split('@')[0]
-    const info = tvgBase ? channelInfo.get(tvgBase) : null
-    if (info && info.is_nsfw) continue
+    absorbStream(baseMap, seenUrl, s, channelInfo, '')
+  }
 
-    const key = tvgBase || cleanName(s.name).toLowerCase() || 'channel'
-    const apiCats = (info && Array.isArray(info.categories))
-      ? info.categories.filter(c => GROUP_MAP[c])
-      : []
-
-    const qual = parseQuality(s.name, s.tvgId)
-    let base = baseMap.get(key)
-    if (!base) {
-      base = {
-        name: cleanName(s.name) || tvgBase,
-        country: (info && info.country) ? info.country.toUpperCase() : countryFromId(s.tvgId),
-        logo: s.logo || (info && info.logo) || '',
-        cat: '',
-        network: (info && info.network) || '',
-        alt: (info && info.alt_names) || [],
-        variants: [],
-        bestScore: -1,
+  // merge curated free-FAST playlists into the same base pool
+  if (MORE_SOURCE_URLS.length) {
+    for (const src of MORE_SOURCE_URLS) {
+      try {
+        const res = await fetch(src.url)
+        if (!res.ok) {
+          console.warn('[iptv-tv] source fetch failed:', src.name, res.status)
+          continue
+        }
+        const text = await res.text()
+        let added = 0
+        for (const s of parseM3U(text)) {
+          added += absorbStream(baseMap, seenUrl, s, channelInfo, src.country)
+        }
+        console.log('[iptv-tv] source ' + src.name + ': ' + added + ' stream variants')
+      } catch (err) {
+        console.warn('[iptv-tv] source error:', src.name, err.message)
       }
-      baseMap.set(key, base)
     }
-
-    if (!base.cat) {
-      base.cat = (apiCats.length && GROUP_MAP[apiCats[0]]) || groupToCat(s.group) || 'general'
-    }
-
-    base.logo = base.logo || s.logo
-    base.variants.push({
-      url: s.url,
-      name: s.name,
-      logo: s.logo || '',
-      quality: qual,
-    })
-    if (qual.score >= base.bestScore) {
-      base.bestScore = qual.score
-      if (s.logo) base.logo = s.logo
-    }
-    seenUrl.add(s.url)
   }
 
   const channels = []
@@ -531,7 +629,7 @@ function buildManifest(catalogs) {
   const isUs = SCOPED_COUNTRY === 'US'
   return {
     id: isUs ? 'community.usatv' : 'community.iptvtv',
-    version: '1.7.0',
+    version: '1.8.0',
     name: TITLE,
     description: isUs
       ? 'American live TV — news, sports, entertainment. Powered by iptv-org.'
